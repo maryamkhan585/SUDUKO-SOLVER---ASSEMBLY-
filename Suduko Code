@@ -1,0 +1,596 @@
+INCLUDE Irvine32.inc
+
+; SUDOKU SOLVER
+
+Authentication0 PROTO, valt:DWORD
+Authentication1 PROTO, valt:DWORD
+checkGrid PROTO, rowNo:DWORD, colNo:DWORD
+
+.data
+; GRID-INFO:
+N BYTE 9
+grid BYTE 81 DUP (?)
+gridcopy BYTE 81 DUP (?)
+
+; BOOLEANS:
+bool1 BYTE ?
+bool2 BYTE ?
+bool3 BYTE 0
+mbool3 BYTE 0
+bool4 BYTE ?
+bool5 BYTE 0
+bool6 BYTE 0
+
+; MESSAGES:
+mesg BYTE "The solved grid is: ", 0
+msg BYTE "No solution exists for the given grid!", 0
+space BYTE ' ', 0
+multiplespace BYTE "   ", 0
+vertical BYTE "| ", 0
+horizontal BYTE "---", 0
+rowmsg BYTE "Enter the elements for ROW-", 0
+msgg BYTE "This is an INVALID VALUE! ", 0
+st_msg1 BYTE "-----------------------------------------Hello, WE ARE HAM!-----------------------------------------------", 0
+st_msg2 BYTE "Please enter your Sudoku grid.", 0
+st_msg5 BYTE "Your Option: ", 0
+st_msg6 BYTE "Press any key to exit.", 0
+
+.code
+Authentication1 PROC USES edx, valt:DWORD ;checks whether the data is from 1 to 9
+MOV bool6, 0
+MOV edx, valt
+CMP edx, 9
+JNC J1
+CMP edx, 1
+JNC J2
+
+J1:
+JZ J2
+RET
+
+J2:
+MOV bool6, 1 ;TRUE
+RET
+Authentication1 ENDP
+
+Authentication0 PROC USES edx eax, valt:DWORD ;checks whether the data is from 0 to 9
+MOV bool5, 0
+MOV edx, valt
+CMP edx, 9
+JNC J1
+CMP edx, 0
+JNC J2
+
+J1:
+JZ J2
+RET
+
+J2:
+MOV bool5, 1 ;TRUE
+RET
+Authentication0 ENDP
+
+checkGrid PROC USES eax ebx esi, rowNo:DWORD, colNo:DWORD
+MOV bool6, 0
+MOV ebx, OFFSET gridcopy
+MOV eax, rowNo
+MUL N
+ADD ebx, eax
+MOV esi, colNo
+
+CMP BYTE PTR [ebx+esi], 0
+JNZ J1
+MOV bool6, 1
+J1:
+RET
+checkGrid ENDP
+
+inputgrid PROC USES eax ebx ecx edx
+LOCAL var_counter: DWORD
+MOV var_counter, 0
+MOVZX ecx, N
+MOV ebx, OFFSET grid
+MOV eax, 0
+L1:
+PUSH ecx
+MOV esi, 0
+CALL PrintGrid
+MOV edx, OFFSET rowmsg
+CALL WriteString
+MOV eax, var_counter
+INC eax
+CALL WriteDec
+MOVZX ecx, N
+CALL crlf
+L2:
+CALL ReadInt
+INVOKE Authentication0, eax
+CMP bool5, 1
+JNZ JM2
+
+CMP eax, 0
+JZ J1
+PUSH var_counter
+PUSH esi
+PUSH eax
+CALL isValidPlace
+ADD esp, 12
+CMP bool4, 1
+JNZ JM2
+MOV bool4, 0
+J1:
+MOV BYTE PTR [ebx+esi], al
+MOV eax, 0
+INC esi ;COL-INC
+LOOP L2
+JMP JM3
+JM2:
+MOV edx, OFFSET msgg
+CALL WriteString
+CALL crlf
+JMP L2
+JM3:
+INC var_counter
+CALL clrscr
+MOVZX edi, N
+ADD ebx, edi ;ROW-JUMP
+POP ecx
+DEC ecx
+CMP ecx, 0
+JNZ L1
+RET
+inputgrid ENDP
+
+printHorizontalLine PROC USES ecx
+PUSH ebp
+MOV ebp, esp
+MOVZX ecx, N
+DEC ecx
+CALL crlf
+MOV edx, OFFSET multiplespace
+CALL WriteString
+L1:
+MOV edx, OFFSET horizontal
+CALL WriteString
+LOOP L1
+
+POP ebp
+RET
+printHorizontalLine ENDP
+
+PrintGrid PROC USES eax edx ebx esi edi ecx
+PUSH ebp
+MOV ebp, esp
+
+CALL printHorizontalLine
+CALL crlf
+
+MOV ebx, OFFSET grid
+MOVZX ecx, N
+
+l1:
+MOV edi, ecx
+MOV esi, 0
+MOVZX ecx, N
+MOV edx, OFFSET multiplespace
+CALL WriteString
+l2:
+CMP ecx, 6
+JC J2
+JNZ J1
+MOV edx, OFFSET vertical
+CALL WriteString
+J2:
+CMP ecx, 3
+JNZ J1
+MOV edx, OFFSET vertical
+CALL WriteString
+J1:
+CMP ecx, 9
+JNZ J5
+MOV edx, OFFSET vertical
+CALL WriteString
+J5:
+
+MOVZX eax, BYTE PTR [ebx+esi]
+CALL WriteDec
+MOV edx, OFFSET space
+CALL WriteString
+INC esi
+
+CMP ecx, 1
+JNZ J6
+MOV edx, OFFSET vertical
+CALL WriteString
+J6:
+LOOP l2
+MOVZX eax, N
+ADD ebx, eax
+
+CMP edi, 7
+JC J4
+JNZ J3
+CALL printHorizontalLine
+
+J4:
+CMP edi, 4
+JNZ J3
+CALL printHorizontalLine
+J3:
+
+CMP edi, 1
+JNZ J7
+CALL printHorizontalLine
+J7:
+
+CALL crlf
+MOV ecx, edi
+DEC ecx
+CMP ecx, 0
+JNZ l1
+POP ebp
+CALL crlf
+RET
+PrintGrid ENDP
+
+isPresentInCol PROC USES ecx esi ebx eax edx
+PUSH ebp
+MOV ebp, esp
+MOVZX ecx, N
+MOV ebx, OFFSET grid
+MOV esi, [ebp+32] ;COL-VALUE
+MOVZX edx, BYTE PTR [ebp+28] ;NUM-VALUE
+L1:
+PUSH ecx
+MOVZX ecx, N
+CMP BYTE PTR [ebx+esi], dl
+JZ J2
+ADD ebx, ecx ;row-jump
+POP ecx
+LOOP L1
+
+POP ebp
+RET
+
+J2:
+POP ecx
+INC mbool3
+POP ebp
+RET
+isPresentInCol ENDP
+
+isPresentInRow PROC USES ecx esi ebx eax edx
+PUSH ebp
+MOV ebp, esp
+MOVZX ecx, N
+MOV ebx, OFFSET grid
+MOV eax, [ebp+32] ;row
+MUL N
+ADD ebx, eax
+MOV esi, 0 ;COL-VALUE
+MOVZX edx, BYTE PTR [ebp+28] ;NUM-VALUE
+L1:
+PUSH ecx
+MOVZX ecx, N
+CMP BYTE PTR [ebx+esi], dl
+JZ J2
+INC esi ;COL-INC
+POP ecx
+LOOP L1
+
+POP ebp
+RET
+
+J2:
+POP ecx
+INC mbool3
+POP ebp
+RET
+isPresentInRow ENDP
+
+isPresentInBox PROC USES ecx esi ebx eax edx edi
+PUSH ebp
+MOV ebp, esp
+MOV ebx, OFFSET grid
+MOV esi, 0
+
+MOVZX eax, BYTE PTR [ebp+40] ;row-row%3
+MOVZX edi, BYTE PTR [ebp+32] ;EDI = NUM
+MOV ecx,  3
+MUL N ;eax
+MOV edx, [ebp+36] ;col-col%3
+ADD ebx, eax
+
+L1:
+PUSH ecx
+MOV ecx, 3
+MOV esi, edx
+L2:
+PUSH ecx
+MOVZX ecx, BYTE PTR [ebx+esi]
+CMP edi, ecx
+JZ J1
+POP ecx
+INC esi
+loop L2
+PUSH edx
+MOVZX edx, N
+ADD ebx, edx ;OFFSET+9 (For next row)
+POP edx
+POP ecx
+loop L1
+
+POP ebp
+RET
+
+J1:
+INC mbool3
+POP ecx
+POP ecx
+POP ebp
+RET
+isPresentInBox ENDP
+
+isValidPlace PROC
+PUSH eax
+PUSH edx
+PUSH esi
+PUSH ebp
+MOV ebp, esp
+mov mbool3, 0
+
+PUSH DWORD PTR [ebp+28] ;ROW
+PUSH DWORD PTR [ebp+20] ;NUM
+call isPresentInRow
+add esp, 8
+
+PUSH [ebp+24] ;COL
+PUSH [ebp+20] ;NUM
+call isPresentInCol
+add esp, 8
+
+MOV esi, 3
+MOV edx, 0
+MOV eax, [ebp+28]
+DIV esi
+MOV eax, [ebp+28]
+SUB eax, edx
+PUSH eax ;row- (row%3)
+
+MOV edx, 0
+MOV eax, [ebp+24]
+DIV esi
+MOV eax, [ebp+24]
+SUB eax, edx
+
+PUSH eax ;col- (col%3)
+PUSH [ebp+20] ;NUM
+CALL isPresentInBox
+ADD esp, 12
+
+CMP mbool3, 0
+JNZ J1
+MOV bool4, 1
+J1:
+POP ebp
+POP esi
+POP edx
+POP eax
+RET
+isValidPlace ENDP
+
+findEmptyPlace PROC USES edx esi edi ebx eax ecx ;return address at ebp+28
+PUSH ebp
+MOV ebp, esp
+MOV ebx, OFFSET grid
+
+MOV eax, [ebp+36] ;row-address
+MOV edx, [ebp+32] ;col-address
+MOV DWORD PTR [eax], 0 ;row
+MOV DWORD PTR [edx], 0  ;col
+
+MOVZX ecx, N
+L1:
+PUSH ecx
+MOV esi, 0
+
+MOV BYTE PTR [edx], 0
+
+MOVZX ecx, N
+L2:
+CMP BYTE PTR [ebx+esi], 0
+JZ ST1
+INC esi
+INC BYTE PTR [edx]
+LOOP L2
+MOVZX edi, N
+ADD ebx, edi
+INC BYTE PTR [eax]
+POP ecx
+LOOP L1
+POP ebp
+MOV bool2, 0 ;FALSE
+RET
+
+ST1:
+POP ecx
+POP ebp
+MOV bool2, 1 ;TRUE
+RET
+findEmptyPlace ENDP
+
+SolveSudoku PROC USES eax ebx esi edi edx
+PUSH ebp
+mov ebp, esp
+sub esp, 12
+lea eax, [ebp-4] ; row
+lea ebx, [ebp-8] ; col
+
+PUSH eax
+PUSH ebx
+CALL findEmptyPlace
+ADD esp, 8
+
+CMP bool2, 1 ;empty place found
+JZ J1
+MOV bool1, 1 ;TRUE
+MOV esp, ebp
+POP ebp
+RET
+
+J1:
+MOV bool2, 0
+MOV DWORD PTR [ebp-12], 1 ;try each number
+MOVZX ecx, N
+L1:
+PUSH [eax] ;row
+PUSH [ebx] ;col
+PUSH DWORD PTR [ebp-12]
+CALL isValidPlace
+ADD esp, 12
+
+CMP bool4, 1
+JNZ ST1
+MOV bool4, 0
+PUSH eax
+MOV edi, OFFSET grid
+MOV eax, [eax] ;row
+MOV esi, [ebx] ;col
+MUL N
+ADD edi, eax
+MOV edx, DWORD PTR [ebp-12]
+MOV BYTE PTR [edi+esi], dl
+POP eax
+
+MOV bool1, 0
+PUSH ecx
+CALL SolveSudoku
+POP ecx
+CMP bool1, 1
+JZ ST2
+
+PUSH eax
+MOV edi, OFFSET grid
+MOV eax, [eax] ;row
+MOV esi, [ebx] ;col
+MUL N
+ADD edi, eax
+MOV BYTE PTR [edi+esi], 0
+POP eax
+
+ST1:
+INC DWORD PTR [ebp-12]
+mov edi, DWORD PTR [ebp-12]
+LOOP L1
+
+mov esp, ebp
+POP ebp
+MOV bool1, 0 ;FALSE
+RET
+
+ST2:
+mov esp, ebp
+POP ebp
+RET
+SolveSudoku ENDP
+
+initialisegrid PROC USES ecx edi eax
+PUSH ebp
+MOV eax, 0
+MOV ecx, SIZE grid
+MOV edi, OFFSET grid
+CLD
+REP STOSB
+POP ebp
+RET
+initialisegrid ENDP
+
+SudokuSolver PROC USES edx
+PUSH ebp
+MOV ebp, esp
+
+CALL inputgrid
+CALL SolveSudoku
+CMP bool1, 1
+JNZ ST2
+MOV edx, OFFSET mesg
+CALL WriteString
+CALL crlf
+CALL crlf
+CALL PrintGrid
+JMP ST3
+
+ST2:
+MOV edx, OFFSET msg
+CALL WriteString
+CALL crlf
+CALL crlf
+
+ST3:
+CALL crlf
+CALL crlf
+MOV edx, OFFSET st_msg6
+CALL WriteString
+CALL crlf
+CALL crlf
+
+CALL readChar
+
+POP ebp
+RET
+SudokuSolver ENDP
+
+WelcomeInterface PROC USES ebx edx
+PUSH ebp
+MOV ebp, esp
+
+; Set text and background color
+MOV eax,0Eh
+CALL SetTextColor
+
+MOV edx, OFFSET st_msg1
+CALL WriteString
+CALL crlf
+
+MOV edx, OFFSET st_msg2
+CALL WriteString
+CALL crlf
+
+
+
+POP ebp
+RET
+WelcomeInterface ENDP
+
+; ENTERING-POINT:
+main PROC USES eax ebx edx ecx
+ENTER 0, 0
+L1:
+CALL WelcomeInterface
+
+; MODULE FOR USER-GIVEN SUDOKU (SUDOKU-SOLVER)
+CALL initialisegrid
+CALL SudokuSolver
+
+CALL crlf
+CALL crlf
+MOV edx, OFFSET st_msg6
+CALL WriteString
+CALL crlf
+CALL crlf
+
+CALL readChar
+
+CALL crlf
+CALL crlf
+MOV edx, OFFSET msg
+CALL WriteString
+CALL crlf
+
+LEAVE
+EXIT
+RET
+main ENDP
+
+END main
+
