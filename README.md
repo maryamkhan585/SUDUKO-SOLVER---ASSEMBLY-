@@ -1,5 +1,4 @@
-# SUDUKO-SOLVER---ASSEMBLY-
-The Suduko Solver Project is an assembly language program designed for the x86 architecture using the Irvine32 library. 
+
 # Sudoku Solver — x86 Assembly (MASM)
 
 A console-based Sudoku solver written in x86 Assembly using the MASM assembler and Irvine32 library. The program accepts a 9x9 Sudoku grid as input and solves it using a backtracking algorithm.
